@@ -86,70 +86,59 @@ def get_cell_source(cell: dict) -> str:
     return source
 
 
+def has_visible_assert(source: str) -> bool:
+    """Check if source has assert statements outside hidden test blocks."""
+    if "assert " not in source:
+        return False
+    in_hidden = False
+    for line in source.split("\n"):
+        stripped = line.strip()
+        if stripped == "# BEGIN HIDDEN TESTS":
+            in_hidden = True
+        elif stripped == "# END HIDDEN TESTS":
+            in_hidden = False
+        elif "assert " in line and not in_hidden:
+            return True
+    return False
+
+
+# Pattern to match problem headers like:
+#   "### Problem 1:" or "## (10 pts) Problem 2:"
+#   "#### **Problem 3:**" or "#### **(10 pts) Problem 4:**"
+PROBLEM_PATTERN = re.compile(
+    r"^#{2,4}\s*\*{0,2}(?:\([^)]+\)\s*)?\*{0,2}\s*Problem\s+(\d+)[:\s*]+(.+)$",
+    re.MULTILINE,
+)
+
+
 def find_problems(nb: dict) -> list[Problem]:
     """Find all problems in a notebook and their components."""
     problems: list[Problem] = []
     current_problem: Problem | None = None
 
-    # Pattern to match problem headers like:
-    #   "### Problem 1:" or "## (10 pts) Problem 2:"
-    #   "#### **Problem 3:**" or "#### **(10 pts) Problem 4:**"
-    problem_pattern = re.compile(
-        r"^#{2,4}\s*\*{0,2}(?:\([^)]+\)\s*)?\*{0,2}\s*Problem\s+(\d+)[:\s*]+(.+)$",
-        re.MULTILINE,
-    )
-
     for idx, cell in enumerate(nb.get("cells", [])):
         source = get_cell_source(cell)
         cell_type = cell.get("cell_type", "")
 
-        # Check for problem header in markdown cells
         if cell_type == "markdown":
-            match = problem_pattern.search(source)
+            match = PROBLEM_PATTERN.search(source)
             if match:
-                # Save previous problem if exists
                 if current_problem is not None:
                     problems.append(current_problem)
-
-                problem_num = int(match.group(1))
-                problem_title = match.group(2).strip()
                 current_problem = Problem(
-                    number=problem_num,
-                    title=problem_title,
+                    number=int(match.group(1)),
+                    title=match.group(2).strip(),
                     prompt_cell_idx=idx,
                 )
 
-        # Check code cells for solutions and tests
         elif cell_type == "code" and current_problem is not None:
-            has_solution = "# BEGIN SOLUTION" in source or "# SOLUTION" in source
-            has_hidden_tests = "# BEGIN HIDDEN TESTS" in source
-            has_visible_tests = "assert " in source and not has_hidden_tests
-
-            # A cell can have both solutions and tests
-            if has_solution:
+            if "# BEGIN SOLUTION" in source or "# SOLUTION" in source:
                 current_problem.solution_cell_idxs.append(idx)
-
-            if has_hidden_tests:
+            if "# BEGIN HIDDEN TESTS" in source:
                 current_problem.hidden_test_cell_idxs.append(idx)
+            if has_visible_assert(source):
+                current_problem.visible_test_cell_idxs.append(idx)
 
-            # Visible tests: has asserts but outside of hidden test blocks
-            if has_visible_tests or (
-                "assert " in source and "# BEGIN HIDDEN TESTS" in source
-            ):
-                # Check if there are asserts outside of hidden test blocks
-                lines = source.split("\n")
-                in_hidden = False
-                for line in lines:
-                    stripped = line.strip()
-                    if stripped == "# BEGIN HIDDEN TESTS":
-                        in_hidden = True
-                    elif stripped == "# END HIDDEN TESTS":
-                        in_hidden = False
-                    elif "assert " in line and not in_hidden:
-                        current_problem.visible_test_cell_idxs.append(idx)
-                        break
-
-    # Don't forget the last problem
     if current_problem is not None:
         problems.append(current_problem)
 
@@ -174,20 +163,19 @@ def run_ruff_check(notebook_path: Path) -> list[str]:
             capture_output=True,
             text=True,
             timeout=30,
+            check=False,
         )
-        if result.returncode != 0:
-            # Filter and return error lines
-            errors = [
-                line
-                for line in result.stdout.strip().split("\n")
-                if line and not line.startswith("Found")
-            ]
-            return errors
-        return []
     except FileNotFoundError:
         return ["ruff not found - install with: pip install ruff"]
     except subprocess.TimeoutExpired:
         return ["ruff check timed out"]
+    if result.returncode != 0:
+        return [
+            line
+            for line in result.stdout.strip().split("\n")
+            if line and not line.startswith("Found")
+        ]
+    return []
 
 
 def run_notebook(notebook_path: Path) -> list[str]:
@@ -211,22 +199,20 @@ def run_notebook(notebook_path: Path) -> list[str]:
             ],
             capture_output=True,
             text=True,
-            timeout=300,  # 5 minute timeout for execution
+            timeout=300,
+            check=False,
         )
-        # Even with --allow-errors, check for assertion failures in output
-        if result.returncode != 0:
-            error_output = result.stderr.strip()
-            if "AssertionError" in error_output:
-                lines = error_output.split("\n")
-                errors = [line for line in lines if "AssertionError" in line]
-                return errors[:5] if errors else ["Assertion failed"]
-            # Other errors are likely intentional demo errors, ignore them
-            return []
-        return []
     except FileNotFoundError:
         return ["jupyter not found - install with: pip install jupyter"]
     except subprocess.TimeoutExpired:
         return ["Notebook execution timed out (>5 minutes)"]
+    if result.returncode != 0:
+        error_output = result.stderr.strip()
+        if "AssertionError" in error_output:
+            lines = error_output.split("\n")
+            errors = [line for line in lines if "AssertionError" in line]
+            return errors[:5] if errors else ["Assertion failed"]
+    return []
 
 
 def validate_notebook(
@@ -264,7 +250,7 @@ def strip_solutions_and_hidden_tests(source_lines: list[str]) -> list[str]:
             in_solution = True
             result.append("# your code here\n")
             continue
-        elif stripped == "# END SOLUTION":
+        if stripped == "# END SOLUTION":
             in_solution = False
             continue
 
@@ -272,7 +258,7 @@ def strip_solutions_and_hidden_tests(source_lines: list[str]) -> list[str]:
         if stripped == "# BEGIN HIDDEN TESTS":
             in_hidden_tests = True
             continue
-        elif stripped == "# END HIDDEN TESTS":
+        if stripped == "# END HIDDEN TESTS":
             in_hidden_tests = False
             continue
 
@@ -307,7 +293,9 @@ def process_notebook(input_path: Path, output_dir: Path) -> tuple[Path, int, int
                 source = [line + "\n" for line in source[:-1]] + [source[-1]]
 
             source_text = "".join(source)
-            has_solution = "# BEGIN SOLUTION" in source_text or "# SOLUTION" in source_text
+            has_solution = (
+                "# BEGIN SOLUTION" in source_text or "# SOLUTION" in source_text
+            )
             has_hidden = "# BEGIN HIDDEN TESTS" in source_text
 
             if has_solution or has_hidden:
@@ -508,7 +496,10 @@ def release(
                 1
                 for c in nb["cells"]
                 if c.get("cell_type") == "code"
-                and ("# BEGIN SOLUTION" in get_cell_source(c) or "# SOLUTION" in get_cell_source(c))
+                and (
+                    "# BEGIN SOLUTION" in get_cell_source(c)
+                    or "# SOLUTION" in get_cell_source(c)
+                )
             )
             hidden_count = sum(
                 1
@@ -517,16 +508,24 @@ def release(
                 and "# BEGIN HIDDEN TESTS" in get_cell_source(c)
             )
             output_file = output_dir / notebook.name
-            print(f"[dry-run] {notebook} -> {output_file} ({sol_count} solutions, {hidden_count} hidden tests)")
+            print(
+                f"[dry-run] {notebook} -> {output_file} ({sol_count} solutions, {hidden_count} hidden tests)"
+            )
         else:
-            output_file, sol_count, hidden_count = process_notebook(notebook, output_dir)
-            print(f"{notebook} -> {output_file} ({sol_count} solutions, {hidden_count} hidden tests stripped)")
+            output_file, sol_count, hidden_count = process_notebook(
+                notebook, output_dir
+            )
+            print(
+                f"{notebook} -> {output_file} ({sol_count} solutions, {hidden_count} hidden tests stripped)"
+            )
 
         total_solutions += sol_count
         total_hidden += hidden_count
 
     suffix = " [dry-run]" if dry_run else ""
-    print(f"\nProcessed {len(notebooks)} notebook(s): {total_solutions} solution(s), {total_hidden} hidden test(s){suffix}")
+    print(
+        f"\nProcessed {len(notebooks)} notebook(s): {total_solutions} solution(s), {total_hidden} hidden test(s){suffix}"
+    )
 
 
 if __name__ == "__main__":
