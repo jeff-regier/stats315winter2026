@@ -25,14 +25,21 @@ app = typer.Typer(
 
 @dataclass
 class Problem:
-    """Represents a homework problem with its components."""
+    """Represents a homework problem with its components.
+
+    Expected structure (otter-grader style):
+    1. Prompt cell (markdown) - contains problem description
+    2. Solution cell (code) - contains solution code, NO tests
+    3. Test cell (code) - contains visible and hidden tests, NO solution markers
+    """
 
     number: int
     title: str
     prompt_cell_idx: int
-    solution_cell_idxs: list[int] = field(default_factory=list)
-    visible_test_cell_idxs: list[int] = field(default_factory=list)
-    hidden_test_cell_idxs: list[int] = field(default_factory=list)
+    solution_cell_idx: int = -1
+    test_cell_idx: int = -1
+    # Track validation errors for this problem
+    errors: list[str] = field(default_factory=list)
 
     @property
     def has_prompt(self) -> bool:
@@ -40,23 +47,16 @@ class Problem:
 
     @property
     def has_solution(self) -> bool:
-        return len(self.solution_cell_idxs) > 0
+        return self.solution_cell_idx >= 0
 
     @property
-    def has_visible_tests(self) -> bool:
-        return len(self.visible_test_cell_idxs) > 0
-
-    @property
-    def has_hidden_tests(self) -> bool:
-        return len(self.hidden_test_cell_idxs) > 0
+    def has_tests(self) -> bool:
+        return self.test_cell_idx >= 0
 
     @property
     def is_complete(self) -> bool:
         return (
-            self.has_prompt
-            and self.has_solution
-            and self.has_visible_tests
-            and self.has_hidden_tests
+            self.has_prompt and self.has_solution and self.has_tests and not self.errors
         )
 
 
@@ -86,6 +86,16 @@ def get_cell_source(cell: dict) -> str:
     return source
 
 
+def has_solution_marker(source: str) -> bool:
+    """Check if source contains solution markers."""
+    return "# BEGIN SOLUTION" in source or "# SOLUTION" in source
+
+
+def has_hidden_tests(source: str) -> bool:
+    """Check if source contains hidden test markers."""
+    return "# BEGIN HIDDEN TESTS" in source
+
+
 def has_visible_assert(source: str) -> bool:
     """Check if source has assert statements outside hidden test blocks."""
     if "assert " not in source:
@@ -102,6 +112,11 @@ def has_visible_assert(source: str) -> bool:
     return False
 
 
+def has_any_assert(source: str) -> bool:
+    """Check if source has any assert statements (visible or hidden)."""
+    return "assert " in source
+
+
 # Pattern to match problem headers like:
 #   "### Problem 1:" or "## (10 pts) Problem 2:"
 #   "#### **Problem 3:**" or "#### **(10 pts) Problem 4:**"
@@ -112,35 +127,89 @@ PROBLEM_PATTERN = re.compile(
 
 
 def find_problems(nb: dict) -> list[Problem]:
-    """Find all problems in a notebook and their components."""
+    """Find all problems in a notebook and validate their structure.
+
+    Expected structure for each problem:
+    1. Prompt cell (markdown) - contains "Problem N: title"
+    2. Solution cell (code) - contains solution markers, NO asserts
+    3. Test cell (code) - contains asserts (visible + hidden), NO solution markers
+    """
     problems: list[Problem] = []
-    current_problem: Problem | None = None
+    cells = nb.get("cells", [])
 
-    for idx, cell in enumerate(nb.get("cells", [])):
-        source = get_cell_source(cell)
-        cell_type = cell.get("cell_type", "")
-
-        if cell_type == "markdown":
+    # First pass: find all problem prompt cells
+    prompt_indices: list[tuple[int, int, str]] = []  # (cell_idx, problem_num, title)
+    for idx, cell in enumerate(cells):
+        if cell.get("cell_type") == "markdown":
+            source = get_cell_source(cell)
             match = PROBLEM_PATTERN.search(source)
             if match:
-                if current_problem is not None:
-                    problems.append(current_problem)
-                current_problem = Problem(
-                    number=int(match.group(1)),
-                    title=match.group(2).strip(),
-                    prompt_cell_idx=idx,
+                prompt_indices.append(
+                    (idx, int(match.group(1)), match.group(2).strip())
                 )
 
-        elif cell_type == "code" and current_problem is not None:
-            if "# BEGIN SOLUTION" in source or "# SOLUTION" in source:
-                current_problem.solution_cell_idxs.append(idx)
-            if "# BEGIN HIDDEN TESTS" in source:
-                current_problem.hidden_test_cell_idxs.append(idx)
-            if has_visible_assert(source):
-                current_problem.visible_test_cell_idxs.append(idx)
+    # Second pass: validate structure for each problem
+    for i, (prompt_idx, problem_num, title) in enumerate(prompt_indices):
+        problem = Problem(
+            number=problem_num,
+            title=title,
+            prompt_cell_idx=prompt_idx,
+        )
 
-    if current_problem is not None:
-        problems.append(current_problem)
+        # Determine the range of cells for this problem
+        next_prompt_idx = (
+            prompt_indices[i + 1][0] if i + 1 < len(prompt_indices) else len(cells)
+        )
+
+        # Look for solution cell and test cell in the cells after the prompt
+        solution_found = False
+        test_found = False
+
+        for idx in range(prompt_idx + 1, next_prompt_idx):
+            cell = cells[idx]
+            if cell.get("cell_type") != "code":
+                continue
+
+            source = get_cell_source(cell)
+            cell_has_solution = has_solution_marker(source)
+            cell_has_assert = has_any_assert(source)
+            cell_has_hidden = has_hidden_tests(source)
+
+            if cell_has_solution and not solution_found:
+                # This is the solution cell
+                problem.solution_cell_idx = idx
+                solution_found = True
+
+                # Validate: solution cell should NOT have asserts
+                if cell_has_assert:
+                    problem.errors.append(
+                        f"Solution cell (cell {idx}) contains assert statements - "
+                        "tests should be in a separate cell"
+                    )
+
+            elif cell_has_assert and solution_found and not test_found:
+                # This is the test cell
+                problem.test_cell_idx = idx
+                test_found = True
+
+                # Validate: test cell should NOT have solution markers
+                if cell_has_solution:
+                    problem.errors.append(
+                        f"Test cell (cell {idx}) contains solution markers - "
+                        "solution should be in the previous cell"
+                    )
+
+                # Validate: test cell should have both visible and hidden tests
+                if not has_visible_assert(source):
+                    problem.errors.append(
+                        f"Test cell (cell {idx}) missing visible tests"
+                    )
+                if not cell_has_hidden:
+                    problem.errors.append(
+                        f"Test cell (cell {idx}) missing hidden tests"
+                    )
+
+        problems.append(problem)
 
     return problems
 
@@ -266,15 +335,144 @@ def strip_solutions_and_hidden_tests(source_lines: list[str]) -> list[str]:
         if in_solution or in_hidden_tests:
             continue
 
-        # Handle inline solution marker
-        if "# SOLUTION" in line:
+        # Handle inline solution marker (must end with # SOLUTION)
+        if line.rstrip().endswith("# SOLUTION"):
             indent = len(line) - len(line.lstrip())
-            result.append(" " * indent + "# your code here\n")
+            # Extract variable name if there's an assignment (not ==, !=, <=, >=)
+            code_part = line.split("# SOLUTION")[0].rstrip()
+            # Match assignment: var = value (but not ==, !=, <=, >=)
+            assign_match = re.match(r"^(\s*)([^=!<>]+)\s*=[^=]", code_part)
+            if assign_match:
+                var_name = assign_match.group(2).rstrip()
+                result.append(" " * indent + var_name + " = ...  # your code here\n")
+            else:
+                result.append(" " * indent + "# your code here\n")
             continue
 
         result.append(line)
 
     return result
+
+
+def is_test_header_comment(line: str) -> bool:
+    """Check if a line is a test section header comment."""
+    stripped = line.strip().lower()
+    return stripped.startswith("# test") and not stripped.startswith("# testing")
+
+
+def split_solution_and_tests(source_lines: list[str]) -> tuple[list[str], list[str]]:
+    """Split a cell's source into solution code and test code.
+
+    Returns (solution_lines, test_lines).
+    """
+    solution_lines: list[str] = []
+    test_lines: list[str] = []
+
+    in_solution = False
+    found_test_start = False
+
+    for line in source_lines:
+        stripped = line.rstrip("\n").strip()
+
+        # Track solution blocks
+        if stripped == "# BEGIN SOLUTION":
+            in_solution = True
+        elif stripped == "# END SOLUTION":
+            in_solution = False
+
+        # Track hidden test blocks
+        if stripped in {"# BEGIN HIDDEN TESTS", "# END HIDDEN TESTS"}:
+            pass
+
+        # Check if this line starts the test section
+        is_assert_line = "assert " in line and not in_solution
+        is_hidden_marker = stripped == "# BEGIN HIDDEN TESTS"
+        is_test_comment = is_test_header_comment(line) and not in_solution
+
+        if (
+            is_assert_line or is_hidden_marker or is_test_comment
+        ) and not found_test_start:
+            found_test_start = True
+
+        # Route line to appropriate section
+        if found_test_start:
+            test_lines.append(line)
+        else:
+            solution_lines.append(line)
+
+    # Clean up trailing empty lines from solution
+    while solution_lines and solution_lines[-1].strip() == "":
+        solution_lines.pop()
+
+    # Add newline at end of solution if needed
+    if solution_lines and not solution_lines[-1].endswith("\n"):
+        solution_lines[-1] += "\n"
+
+    return solution_lines, test_lines
+
+
+def fix_notebook_structure(notebook_path: Path) -> tuple[int, int]:
+    """Fix notebook structure by splitting combined solution/test cells.
+
+    Returns (cells_split, cells_unchanged).
+    """
+    with notebook_path.open() as f:
+        nb = json.load(f)
+
+    new_cells = []
+    cells_split = 0
+    cells_unchanged = 0
+
+    for cell in nb["cells"]:
+        if cell["cell_type"] != "code":
+            new_cells.append(cell)
+            continue
+
+        source = cell.get("source", [])
+        if isinstance(source, str):
+            source = source.split("\n")
+            source = [line + "\n" for line in source[:-1]] + [source[-1]]
+
+        source_text = "".join(source)
+        cell_has_solution = has_solution_marker(source_text)
+        cell_has_assert = has_any_assert(source_text)
+
+        # If cell has both solution and tests, split it
+        if cell_has_solution and cell_has_assert:
+            solution_lines, test_lines = split_solution_and_tests(source)
+
+            if solution_lines and test_lines:
+                # Create solution cell
+                solution_cell = cell.copy()
+                solution_cell["source"] = solution_lines
+                solution_cell["outputs"] = []
+                solution_cell["execution_count"] = None
+                new_cells.append(solution_cell)
+
+                # Create test cell
+                test_cell = {
+                    "cell_type": "code",
+                    "execution_count": None,
+                    "metadata": {},
+                    "outputs": [],
+                    "source": test_lines,
+                }
+                new_cells.append(test_cell)
+                cells_split += 1
+            else:
+                # Couldn't split properly, keep original
+                new_cells.append(cell)
+                cells_unchanged += 1
+        else:
+            new_cells.append(cell)
+            cells_unchanged += 1
+
+    nb["cells"] = new_cells
+
+    with notebook_path.open("w") as f:
+        json.dump(nb, f, indent=1)
+
+    return cells_split, cells_unchanged
 
 
 def process_notebook(input_path: Path, output_dir: Path) -> tuple[Path, int, int]:
@@ -357,18 +555,22 @@ def check(
 
             missing = []
             if not problem.has_prompt:
-                missing.append("prompt")
+                missing.append("prompt cell")
             if not problem.has_solution:
-                missing.append("solution")
-            if not problem.has_visible_tests:
-                missing.append("visible tests")
-            if not problem.has_hidden_tests:
-                missing.append("hidden tests")
+                missing.append("solution cell")
+            if not problem.has_tests:
+                missing.append("test cell")
 
             if missing:
                 print(f"    MISSING: {', '.join(missing)}")
                 all_valid = False
-            else:
+
+            if problem.errors:
+                for error in problem.errors:
+                    print(f"    ERROR: {error}")
+                all_valid = False
+
+            if not missing and not problem.errors:
                 print("    OK")
 
         if result.ruff_errors:
@@ -455,14 +657,13 @@ def release(
             if incomplete:
                 print(f"  {notebook_path}: {len(incomplete)} incomplete problem(s)")
                 for p in incomplete:
-                    missing = []
+                    issues = []
                     if not p.has_solution:
-                        missing.append("solution")
-                    if not p.has_visible_tests:
-                        missing.append("visible tests")
-                    if not p.has_hidden_tests:
-                        missing.append("hidden tests")
-                    print(f"    Problem {p.number}: missing {', '.join(missing)}")
+                        issues.append("missing solution cell")
+                    if not p.has_tests:
+                        issues.append("missing test cell")
+                    issues.extend(p.errors)
+                    print(f"    Problem {p.number}: {'; '.join(issues)}")
                 all_valid = False
 
             if result.ruff_errors:
@@ -526,6 +727,61 @@ def release(
     print(
         f"\nProcessed {len(notebooks)} notebook(s): {total_solutions} solution(s), {total_hidden} hidden test(s){suffix}"
     )
+
+
+@app.command("fix-structure")
+def fix_structure(
+    notebooks: Annotated[
+        list[Path],
+        typer.Argument(
+            help="Notebook files to fix",
+            exists=True,
+            dir_okay=False,
+            readable=True,
+        ),
+    ],
+    dry_run: Annotated[
+        bool,
+        typer.Option(
+            "--dry-run",
+            "-n",
+            help="Show what would be done without modifying files",
+        ),
+    ] = False,
+) -> None:
+    """Fix notebook structure by splitting combined solution/test cells.
+
+    For cells that contain both solution markers and assert statements,
+    splits them into separate cells:
+    1. Solution cell (code with solution markers)
+    2. Test cell (asserts and hidden tests)
+
+    This converts notebooks to the otter-grader style structure.
+    """
+    total_split = 0
+
+    for notebook_path in notebooks:
+        if dry_run:
+            with notebook_path.open() as f:
+                nb = json.load(f)
+
+            split_count = 0
+            for cell in nb["cells"]:
+                if cell.get("cell_type") != "code":
+                    continue
+                source_text = get_cell_source(cell)
+                if has_solution_marker(source_text) and has_any_assert(source_text):
+                    split_count += 1
+
+            print(f"[dry-run] {notebook_path}: would split {split_count} cell(s)")
+            total_split += split_count
+        else:
+            cells_split, _ = fix_notebook_structure(notebook_path)
+            print(f"{notebook_path}: split {cells_split} cell(s)")
+            total_split += cells_split
+
+    suffix = " [dry-run]" if dry_run else ""
+    print(f"\nTotal: {total_split} cell(s) split{suffix}")
 
 
 if __name__ == "__main__":
