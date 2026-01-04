@@ -79,34 +79,37 @@ ignore = [
     "S101",   # assert statements OK for tests
     "PLR2004", # magic values OK in educational code
     "ERA001", # commented code OK for educational purposes
-    "INP001", # implicit namespace packages OK
-    "PLR0913", # too many arguments OK for learning
-    "FBT001", # boolean positional arg OK
-    "FBT002", # boolean default value OK
     "COM812", # conflicts with ruff formatter
     "RET505", # elif after return OK for pedagogical clarity
     "UP032",  # .format() OK when teaching string formatting
-    "PERF401", # loop-to-comprehension OK when teaching comprehensions
-    "PLR0133", # constant comparisons OK for teaching type coercion
-    "PT018",  # compound assertions OK for concise test cases
-    "SIM102", # nested ifs OK for pedagogical clarity
-    "SIM118", # .keys() OK for explicit teaching
-    "RUF015", # list slicing OK over next(iter(...))
-    "E712",   # == True/False OK for explicit boolean teaching
-    "E501",   # long lines OK for descriptive assertion messages
-    "W293",   # whitespace in blank lines OK in docstrings
 ]
 
 [tool.ruff.lint.per-file-ignores]
-"make_student_template.py" = [
+"make_student_version.py" = [
     "C901",    # CLI commands have inherent complexity
     "PLR0912", # CLI commands have many branches for validation output
     "S603",    # subprocess with hardcoded commands is fine
     "S607",    # partial executable path is fine for internal tools
+    "FBT001",  # Typer CLI requires boolean positional args
+    "FBT002",  # Typer CLI requires boolean defaults
 ]
 "*.ipynb" = [
     "F821",    # undefined names expected (cross-cell references)
     "F811",    # redefinitions expected (teaching same concept multiple ways)
+    "PT018",   # compound assertions OK for concise hidden tests
+]
+"Homework1.ipynb" = [
+    "PERF401", # teaching loops before comprehensions
+    "PLR0133", # teaching type coercion behavior
+    "SIM118",  # explicit .keys() for teaching dict iteration
+    "RUF015",  # slice readability over next(iter(...))
+    "FBT002",  # teaching function default arguments
+]
+"Homework2.ipynb" = [
+    "SIM102",  # nested ifs for pedagogical clarity
+]
+"GroupWork2.ipynb" = [
+    "PLR0913", # neural net functions need many parameters
 ]
 
 [tool.ruff.lint.mccabe]

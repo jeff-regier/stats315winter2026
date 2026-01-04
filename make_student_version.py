@@ -209,6 +209,24 @@ def find_problems(nb: dict) -> list[Problem]:
                         f"Test cell (cell {idx}) missing hidden tests"
                     )
 
+                # Validate: test cell should start with "# Test assertions"
+                first_line = source.split("\n")[0].strip() if source else ""
+                if first_line != "# Test assertions":
+                    problem.errors.append(
+                        f"Test cell (cell {idx}) must start with '# Test assertions'"
+                    )
+
+                # Validate: test cell should be the last code cell before next problem
+                # (i.e., followed by markdown or end of problem section)
+                next_cell_idx = idx + 1
+                if next_cell_idx < next_prompt_idx:
+                    next_cell = cells[next_cell_idx]
+                    if next_cell.get("cell_type") == "code":
+                        problem.errors.append(
+                            f"Test cell (cell {idx}) should be followed by a markdown "
+                            f"cell, not another code cell (cell {next_cell_idx})"
+                        )
+
         problems.append(problem)
 
     return problems
@@ -317,7 +335,8 @@ def strip_solutions_and_hidden_tests(source_lines: list[str]) -> list[str]:
         # Handle solution markers
         if stripped == "# BEGIN SOLUTION":
             in_solution = True
-            result.append("# your code here\n")
+            indent = len(line) - len(line.lstrip())
+            result.append(" " * indent + "# your code here\n")
             continue
         if stripped == "# END SOLUTION":
             in_solution = False
@@ -350,6 +369,14 @@ def strip_solutions_and_hidden_tests(source_lines: list[str]) -> list[str]:
             continue
 
         result.append(line)
+
+    # Remove trailing empty lines
+    while result and result[-1].strip() == "":
+        result.pop()
+
+    # Remove trailing newline from last line
+    if result and result[-1].endswith("\n"):
+        result[-1] = result[-1][:-1]
 
     return result
 
@@ -485,6 +512,10 @@ def process_notebook(input_path: Path, output_dir: Path) -> tuple[Path, int, int
 
     for cell in nb["cells"]:
         if cell["cell_type"] == "code":
+            # Clear outputs and execution count for student version
+            cell["outputs"] = []
+            cell["execution_count"] = None
+
             source = cell.get("source", [])
             if isinstance(source, str):
                 source = source.split("\n")
@@ -710,14 +741,16 @@ def release(
             )
             output_file = output_dir / notebook.name
             print(
-                f"[dry-run] {notebook} -> {output_file} ({sol_count} solutions, {hidden_count} hidden tests)"
+                f"[dry-run] {notebook} -> {output_file} "
+                f"({sol_count} solutions, {hidden_count} hidden tests)"
             )
         else:
             output_file, sol_count, hidden_count = process_notebook(
                 notebook, output_dir
             )
             print(
-                f"{notebook} -> {output_file} ({sol_count} solutions, {hidden_count} hidden tests stripped)"
+                f"{notebook} -> {output_file} "
+                f"({sol_count} solutions, {hidden_count} hidden tests stripped)"
             )
 
         total_solutions += sol_count
@@ -725,7 +758,8 @@ def release(
 
     suffix = " [dry-run]" if dry_run else ""
     print(
-        f"\nProcessed {len(notebooks)} notebook(s): {total_solutions} solution(s), {total_hidden} hidden test(s){suffix}"
+        f"\nProcessed {len(notebooks)} notebook(s): "
+        f"{total_solutions} solution(s), {total_hidden} hidden test(s){suffix}"
     )
 
 
