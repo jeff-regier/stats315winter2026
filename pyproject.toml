@@ -101,6 +101,7 @@ ignore = [
     "PLR2004", # magic values OK in educational code
     "ERA001", # commented code OK for educational purposes
     "COM812", # conflicts with ruff formatter
+    "ISC001", # conflicts with ruff formatter
     "RET505", # elif after return OK for pedagogical clarity
     "UP032",  # .format() OK when teaching string formatting
     "PLR0402", # import torch.nn as nn is standard PyTorch convention
