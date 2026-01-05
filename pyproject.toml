@@ -1,13 +1,12 @@
 [project]
-name = "datasci-315"
+name = "winter2026assignments"
 version = "0.1.0"
 description = "Add your description here"
-readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
     "ipykernel>=7.1.0",
     "matplotlib>=3.10.8",
-    "numpy>=2.4.0",
+    "numpy>=1.26.0,<2.4",
     "pandas>=2.3.3",
     "requests>=2.31.0",
     "ruff>=0.14.10",
@@ -27,10 +26,23 @@ dependencies = [
     "tqdm>=4.67.1",
     "astropy>=7.0.0",
     "nltk>=3.9.1",
+    "scipy>=1.14.0",
+    "seaborn>=0.13.0",
+    "sympy>=1.13.0",
+    "pygam>=0.9.1",
+    "plotly>=5.24.0",
+    "graphviz>=0.20.0",
+    "scanpy>=1.10.0",
 ]
 
 [project.scripts]
-release = "release:app"
+make-student-version = "make_student_version:main"
+
+[tool.uv]
+package = true
+
+[tool.setuptools]
+py-modules = ["make_student_version"]
 
 [tool.ruff]
 line-length = 100
@@ -121,27 +133,43 @@ ignore = [
     "COM818",  # trailing commas OK in notebooks
     "N806",    # B, C, H, W are standard ML tensor dimension names
 ]
-"homework1/*.ipynb" = [
+"datasci315/homework1/*.ipynb" = [
     "PERF401", # teaching loops before comprehensions
     "PLR0133", # teaching type coercion behavior
     "SIM118",  # explicit .keys() for teaching dict iteration
     "RUF015",  # slice readability over next(iter(...))
     "FBT002",  # teaching function default arguments
 ]
-"homework2/*.ipynb" = [
+"datasci315/homework2/*.ipynb" = [
     "SIM102",  # nested ifs for pedagogical clarity
     "SIM103",  # explicit if/return for pedagogical clarity
 ]
-"homework3/*.ipynb" = [
+"datasci315/homework3/*.ipynb" = [
     "N803",    # X is standard ML convention for data matrices
     "N806",    # X_augmented etc. follow ML naming conventions
 ]
-"groupwork6/*.ipynb" = [
+"datasci503/groupwork4/*.ipynb" = [
+    "N803",    # X is standard ML convention for data matrices
+    "N817",    # LDA, QDA are standard sklearn import aliases
+]
+"datasci503/groupwork2/*.ipynb" = [
+    "FBT003",  # Boolean positional values OK in plotting calls
+    "B007",    # Unused loop variable OK in repeated training loops
+    "N816",    # true_Y naming OK in educational context
+    "PERF401", # teaching explicit loops before list comprehensions
+    "C408",    # dict() call OK for readability in animation code
+    "E501",    # long lines OK in complex formatting strings
+    "E402",    # imports not at top OK for incremental cell execution
+]
+"datasci503/groupwork6/*.ipynb" = [
+    "N803",    # X is standard ML convention for data matrices
+    "PERF401", # teaching explicit loops before list comprehensions
+]
+"datasci315/groupwork6/*.ipynb" = [
     "ARG001",  # unused function args OK in student templates
-    "PTH110",  # os.path.exists OK for simple file checks
     "S310",    # urlretrieve OK for downloading dataset
 ]
-"groupwork12/stgat_traffic_prediction/**/*.py" = [
+"datasci315/groupwork12/stgat_traffic_prediction/**/*.py" = [
     "F403",    # star imports OK in reference implementation
     "F405",    # undefined from star imports OK
     "N801",    # ST_GAT is standard model name from paper

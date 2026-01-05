@@ -122,8 +122,9 @@ def has_any_assert(source: str) -> bool:
 #   "### Problem 1:" or "## (10 pts) Problem 2:"
 #   "#### **Problem 3:**" or "#### **(10 pts) Problem 4:**"
 #   "### Problem 2a:" or "### Problem 3b:" (with letter suffix)
+#   "### Problem 1.1:" or "### Problem 2.6:" (with decimal suffix)
 PROBLEM_PATTERN = re.compile(
-    r"^#{2,4}\s*\*{0,2}(?:\([^)]+\)\s*)?\*{0,2}\s*Problem\s+(\d+[a-z]?)[:\s*]+(.+)$",
+    r"^#{2,4}\s*\*{0,2}(?:\([^)]+\)\s*)?\*{0,2}\s*Problem\s+(\d+(?:\.\d+)?[a-z]?)[:\s*]+(.+)$",
     re.MULTILINE,
 )
 

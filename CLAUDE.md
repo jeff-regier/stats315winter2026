@@ -1,11 +1,12 @@
 # CLAUDE.md
 
-This repository contains course materials for DATASCI 315, including homework and groupwork Jupyter notebook assignments.
+This repository contains course materials for DATASCI 315 and DATASCI 503, including homework and groupwork Jupyter notebook assignments.
 
 ## Project Structure
-
-- `homework*/` - Individual homework assignments (Jupyter notebooks)
-- `groupwork*/` - Group work assignments (Jupyter notebooks)
+- `datasci315/` - DATASCI 315 course materials
+  - `homework*/` - Individual homework assignments (Jupyter notebooks)
+  - `groupwork*/` - Group work assignments (Jupyter notebooks)
+- `datasci503/` - DATASCI 503 course materials
 - `student/` - Student versions of assignments (solutions stripped)
 - `make_student_version.py` - Tool to validate and generate student versions
 
