@@ -33,7 +33,9 @@ uv run python make_student_version.py <path/to/notebook.ipynb>
 ### Free-Response Problems
 For problems requiring written explanations (no code), use blockquote-style markers in a markdown cell:
 ```markdown
-### Problem N: Title
+---
+
+**Problem N: Title**
 
 Question text here.
 
@@ -60,7 +62,12 @@ Note: Two newlines after `> BEGIN SOLUTION` so it renders on its own line. The v
 Solution code and test assertions must be in SEPARATE cells. Never put asserts in the same cell as `# BEGIN SOLUTION`.
 
 ### Problem Headers
-Use `### Problem N: Title` or `#### Problem N: Title` (no bold, no point values).
+Use a horizontal rule followed by bold text (not markdown headers, to avoid hierarchy conflicts):
+```markdown
+---
+
+**Problem N: Title**
+```
 
 ### Assignment Title Format
 `# DATASCI 315, [Assignment Type] [N]: [Topic]`

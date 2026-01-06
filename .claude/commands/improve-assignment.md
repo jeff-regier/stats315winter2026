@@ -18,6 +18,7 @@ Review each problem/question for:
 - **Missing edge cases**: Are boundary conditions specified when relevant?
 - **Indexing ambiguity**: If indices are used, is it clear whether they're 0-based or 1-based?
 - **Unclear data types**: Are expected types (int, float, list, tensor, etc.) specified?
+- **Missing variable names**: Are required variable/function names specified in the problem description? Students should not have to guess names from test cells or starter code.
 
 ### 3. Check Pedagogical Quality
 Review for good teaching practices:
@@ -40,7 +41,12 @@ Review for good teaching practices:
 - **Avoid ambiguous names**: Variables should clearly indicate their purpose
 - **Exception**: Loop indices (`i`, `j`, `k`) and math conventions (`x`, `y` for coordinates) are acceptable
 
-### 6. Fix Heading Hierarchy and Organization
+### 6. Check Docstrings
+- **No pseudo-code in docstrings**: Docstrings should describe what a function does, not show example calls like `func(0) = 0`. Example calls belong in the problem description or as code comments.
+- **Concise descriptions**: Use one-line docstrings for simple functions
+- **Proper format**: Description first, then Args/Returns sections if needed for complex functions
+
+### 7. Fix Heading Hierarchy and Organization
 - **Remove overly broad headings**: Headings like "Basics of Python" that are too vague to be useful should be removed, with their content promoted up a level
 - **Proper nesting**: Each heading level should be meaningfully more specific than its parent
 - **Logical grouping**: Content should be under the section it belongs to (e.g., "Conditionals" is not a "Basic data type", "Functions" and "Classes" are not "Container Data Types")
@@ -50,9 +56,9 @@ Review for good teaching practices:
 - **Descriptive section names**: Rename generic sections for clarity (e.g., "Containers" → "Container Data Types")
 - **Outline should be useful**: Check the document outline—each heading should help students navigate to specific content
 
-### 7. Ensure Consistent Formatting
+### 8. Ensure Consistent Formatting
 - **Consistent header levels**: Use proper markdown hierarchy
-- **Problem headers**: Use `### Problem N: Title` or `#### Problem N: Title` (no bold, no point values)
+- **Problem headers**: Use `---` followed by `**Problem N: Title**` (horizontal rule + bold text, not markdown headers)
 - **Assignment title**: `# DATASCI 315, [Assignment Type] [N]: [Topic]`
 - **Sub-parts**: Format as (a), (b), (c) with clear separation
 - **Consistent hint format**: Use `**Hint:**` consistently
@@ -60,14 +66,14 @@ Review for good teaching practices:
 - **No trailing whitespace**: Clean up any extra spaces
 - **Remove existing bold/point values**: Strip `**` and `(X pts)` from problem headers
 
-### 8. Check Test Cases
+### 9. Check Test Cases
 For each problem that has test cases:
 - **Minimum 2 assertions**: Each problem should have at least 2 test cases
 - **Edge cases covered**: Tests should include boundary conditions
 - **Clear error messages**: Assert messages should explain what's being tested
 - **Correct expected values**: Verify the expected values in assertions are correct
 
-### 9. Add Hidden Tests for Autograding
+### 10. Add Hidden Tests for Autograding
 For each problem, add hidden test sections for autograding:
 - **Place hidden tests AFTER visible tests** in the same cell
 - **Use markers**: `# BEGIN HIDDEN TESTS` and `# END HIDDEN TESTS`
@@ -75,7 +81,7 @@ For each problem, add hidden test sections for autograding:
 - **Include 2-4 hidden tests** per problem
 - **Test different inputs** than visible tests to prevent hardcoding
 
-### 10. Standardize Test Cell Structure
+### 11. Standardize Test Cell Structure
 Each test cell should follow this pattern:
 1. **First line must be**: `# Test assertions` (required by autograder)
 2. Visible assertions with descriptive error messages
@@ -97,7 +103,7 @@ assert another_test, "Another test description"
 # END HIDDEN TESTS
 ```
 
-### 11. Solve All Problems
+### 12. Solve All Problems
 For each problem with a placeholder solution (e.g., `# your code here` or `pass`):
 - **Write a complete solution**
 - **Demarcate code solutions** with comments:
@@ -120,19 +126,19 @@ For each problem with a placeholder solution (e.g., `# your code here` or `pass`
 - **Use best practices**: Write clean, efficient, idiomatic code
 - **Add brief comments**: Explain the strategy at the start of each solution
 
-### 12. Verify All Tests Pass
+### 13. Verify All Tests Pass
 After solving all problems:
 - **Run each test cell** to verify solutions are correct
 - **Fix any failing tests**: Debug and correct solutions as needed
 - **Ensure all assertions pass**: Every `assert` statement must succeed
 
-### 13. Run Ruff
+### 14. Run Ruff
 Ensure code quality:
 - **Run `uv run ruff check <file>`**: Fix any linting issues
 - **Run `uv run ruff format <file>`**: Ensure consistent formatting
 - **Verify clean output**: Both commands should pass with no errors
 
-### 14. Run Structure Validation
+### 15. Run Structure Validation
 Run the release tool to validate notebook structure for autograding:
 ```bash
 uv run python make_student_version.py check <file>

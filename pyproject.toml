@@ -35,14 +35,8 @@ dependencies = [
     "scanpy>=1.10.0",
 ]
 
-[project.scripts]
-make-student-version = "make_student_version:main"
-
 [tool.uv]
-package = true
-
-[tool.setuptools]
-py-modules = ["make_student_version"]
+package = false
 
 [tool.ruff]
 line-length = 100
@@ -140,6 +134,7 @@ ignore = [
     "SIM118",  # explicit .keys() for teaching dict iteration
     "RUF015",  # slice readability over next(iter(...))
     "FBT002",  # teaching function default arguments
+    "Q000",    # single quotes OK when teaching string syntax
 ]
 "datasci315/homework2/*.ipynb" = [
     "SIM102",  # nested ifs for pedagogical clarity

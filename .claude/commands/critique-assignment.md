@@ -21,6 +21,7 @@ Check each dimension below and note any issues found:
 - **Missing edge cases**: Are boundary conditions specified when relevant?
 - **Indexing ambiguity**: Is it clear whether indices are 0-based or 1-based?
 - **Unclear data types**: Are expected types specified?
+- **Missing variable names**: Are required variable/function names specified in the problem description? Students should not have to guess names from test cells.
 
 #### B. Pedagogical Quality
 - **Missing hints**: Do complex problems have helpful hints?
@@ -30,6 +31,11 @@ Check each dimension below and note any issues found:
 - **Missing prerequisites**: Are assumed skills stated?
 - **Missing documentation links**: Are relevant resources linked?
 - **Syntax over understanding**: Do problems test rote syntax rather than concepts?
+- **Poor narrative flow**: Does each explanatory cell follow logically from the previous? Watch for:
+  - Statements that don't connect to preceding content (e.g., "X doesn't work" appearing after unrelated material)
+  - Contextual information appearing *after* a problem where it would have been useful
+  - Abrupt topic transitions without connecting phrases
+  - "Orphaned" explanations that feel like afterthoughts rather than natural continuations
 
 #### C. Test Quality
 - **Missing error messages**: Do assertions have descriptive failure messages?
@@ -95,6 +101,7 @@ Note: Do NOT critique solution code, as students won't necessarily see it. Only 
 - Missing edge case tests
 - Threatening or unprofessional language
 - Poor assignment flow (problems disconnected from lessons)
+- Poor narrative flow (explanations that don't follow logically, misplaced context)
 
 **Minor**: Polish items and suggestions
 - Typos and grammar
@@ -109,11 +116,6 @@ Print your critique in this format:
 
 ## Critique: [Assignment Name]
 
-### Summary
-- **Critical issues**: X
-- **Moderate issues**: Y
-- **Minor issues**: Z
-
 ### Critical Issues
 
 **[Issue Title]** (Problem N / Section)
@@ -121,30 +123,21 @@ Print your critique in this format:
 - Why it's problematic
 - Suggested fix
 
-[Repeat for each critical issue]
+[Repeat for each critical issue, or "None" if there are no critical issues]
 
 ### Moderate Issues
 
 **[Issue Title]** (Location)
 - Description and suggestion
 
-[Repeat for each moderate issue]
+[Repeat for each moderate issue, or "None" if there are no moderate issues]
 
 ### Minor Issues
 
 - [Brief description] (Location)
 - [Brief description] (Location)
 
-### Strengths
-
-- [What the assignment does well]
-- [Good pedagogical choices]
-
-### Recommendations
-
-1. [Highest priority fix]
-2. [Second priority]
-3. [Third priority]
+[Or "None" if there are no minor issues]
 
 ---
 
@@ -154,4 +147,3 @@ Print your critique in this format:
 - **Be specific** - cite problem numbers and quote problematic text
 - **Be constructive** - focus on actionable improvements
 - **Be thorough** - check every dimension systematically
-- **Be fair** - acknowledge what works well

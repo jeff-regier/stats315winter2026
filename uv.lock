@@ -3299,7 +3299,7 @@ wheels = [
 [[package]]
 name = "winter2026assignments"
 version = "0.1.0"
-source = { editable = "." }
+source = { virtual = "." }
 dependencies = [
     { name = "astropy" },
     { name = "datasets" },
